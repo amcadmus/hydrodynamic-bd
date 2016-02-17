@@ -1,0 +1,62 @@
+% \documentclass[aip,jcp,preprint,unsortedaddress,a4paper,onecolum]{revtex4-1}
+\documentclass[aip,jcp,a4paper,reprint,onecolumn]{revtex4-1}
+% \documentclass[aps,pre,twocolumn]{revtex4-1}
+% \documentclass[aps,jcp,groupedaddress,twocolumn,unsortedaddress]{revtex4}
+
+\usepackage[fleqn]{amsmath}
+\usepackage{amssymb}
+\usepackage[dvips]{graphicx}
+\usepackage{color}
+\usepackage{tabularx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\makeatletter
+\makeatother
+
+\begin{document}
+
+In the PRE paper, we consider the mode of the velocity
+\begin{align}
+  \hat v(k) = \sum_{i=1}^N v_i \sin(k z_i),
+\end{align}
+which is an approximation to the Fourier tranform of the velocity profile $v(z)$, i.e.
+\begin{align}
+  \hat v(k) = \int_{-\infty}^{+\infty} v(z) \sin(kz) dz
+\end{align}
+and we have
+\begin{align}\label{eqn:tmp3}
+  v(z) = \frac1{2\pi}\int_{-\infty}^{+\infty} \hat v(k)\sin(kz) dk
+\end{align}
+% where $v(z)$ is defined to be
+% \begin{align}
+%   v(z) = \sum_{i=1}^N v_i \delta (z - z_i).
+% \end{align}
+
+Instead of the full fluid region, we now consider a ``window'' of the fluid region saying
+$\Omega_w = [-h_w, h_w]$.
+We assume that the density of the fluid in the window is roughly constant.
+Now we compute the ``mode''
+\begin{align}
+  \hat v_w(k) = \sum_{i\in\Omega_w} v_i \sin(k z_i),
+\end{align}
+It is actually the approximation to the integral
+\begin{align}\label{eqn:tmp5}
+  \hat v_w(k) = \int_{-h_w}^{h_w} v(z) \sin(kz) dz
+\end{align}
+Insert Eq.~\eqref{eqn:tmp3} into \eqref{eqn:tmp5}, we have
+\begin{align}
+  \hat v_w(k) = \frac{1}{2\pi}\int_{-\infty}^{+\infty} d\xi \,\hat v(\xi) \int_{-h_w}^{h_w}dz  \sin(kz) \sin(\xi z)
+\end{align}
+In the discretized form, we solve the linear system:
+\begin{align}
+  \Delta \xi\sum_j A_{ij} \hat v_j = (\hat v_w)_i, 
+\end{align}
+where
+\begin{align}
+  A_{ij} = \frac{1}{2\pi} \int_{-h_w}^{h_w}dz  \sin(k_i z) \sin(\xi_j z), \quad (\hat v_w)_i,  = \hat v_w(k_i), \quad \hat v_j  =  v(\xi_j) 
+\end{align}
+When $h_w$ goes to infinity, the $A_{ij}$ is diagonal, so we get back to the PRE case.
+
+
+\end{document}
