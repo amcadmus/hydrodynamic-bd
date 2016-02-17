@@ -3,13 +3,12 @@
 #MKL_INCLUDE=	/home/wang/intel/mkl/8.0.1/include
 #MKL_LINK= 	-L/home/wang/intel/mkl/8.0.1/lib/32 -lmkl_lapack -lmkl_ia32 -lguide -lpthread 
 # boost-include-path=	/people/thnfs/homes/wanghan/local/include/boost-1_36
-#boost-include-path= /home/xmyy/local/include/boost
 # boost-lib-path=		/people/thnfs/homes/wanghan/local/lib
-#boost-lib-option=	-lboost_program_options
-boost-lib-option=   -L /home/xmyy/local/lib  -lboost_program_options
-#xdrfile-lib-option=	-L ~/local/lib -lxdrfile
-xdrfile-lib-option=  -L /home/xmyy/local/include -lxdrfile
-include_dirs = 	./include $(MKL_INCLUDE) $(boost-include-path) ~/local/include 
+boost-lib-option=	-lboost_program_options
+xdrfile-lib-option=	-L ~/local/lib -lxdrfile
+
+include_dirs = 	./include $(MKL_INCLUDE) $(boost-include-path) ~/local/include
+
 sources_dir =		src
 application_dir=	app
 application_target=	$(notdir $(subst .cpp,,$(wildcard $(application_dir)/*.cpp)))
