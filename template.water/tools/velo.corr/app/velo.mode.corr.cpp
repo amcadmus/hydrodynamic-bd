@@ -12,12 +12,15 @@
 #include <vector>
 #include <cmath>
 #include <time.h>
+#include <pthread.h>
+#include <omp.h> 
 
 #include "GroFileManager.h"
 #include <boost/program_options.hpp>
 #include "Trajectory.h"
 #include "BlockAverage.h"
 #include "AutoCorrelCalculator.h"
+#include "ModeRecover.h"
 
 namespace po = boost::program_options;
 
@@ -31,6 +34,8 @@ int main (int argc, char * argv[])
   double kkStart, kkStep, kkEnd;
   double ll = 0.;
   double begin, end;
+  double h_window;
+  double cond_numb;
   unsigned nDataInBlock, nDataCorr;
   unsigned every;
   po::options_description desc ("Allow options");
@@ -41,11 +46,13 @@ int main (int argc, char * argv[])
       ("mode-step", po::value<double > (&kkStep)->default_value (0.01, "the step of mode k"))
       ("mode-end", po::value<double > (&kkEnd)->default_value (3.3, "the end of mode k"))
       ("layer,l", po::value<double > (&ll)->default_value (0.0, "the layer width l"))
+      ("window,w", po::value<double > (&h_window)->default_value (-1, "the size of the window, minus value for infinitely large window."))      
+      ("cond-numb", po::value<double > (&cond_numb)->default_value (1e6, "the allowed condition number for solving the linear system."))      
       ("begin,b", po::value<double > (&begin)->default_value (5000.0, "the starting time"))
-      ("n-data-block,n", po::value<unsigned > (&nDataInBlock)->default_value (100, "number of block"))
-      ("n-corr", po::value<unsigned > (&nDataCorr)->default_value (25, "number of corr data"))
       ("end,e", po::value<double > (&end)->default_value (11000, "the ending time"))
       ("every", po::value<unsigned > (&every)->default_value (1, "skip frame"))
+      ("n-data-block,n", po::value<unsigned > (&nDataInBlock)->default_value (100, "number of block"))
+      ("n-corr", po::value<unsigned > (&nDataCorr)->default_value (25, "number of corr data"))
       ("conf,c",  po::value<std::string > (&cfile)->default_value (std::string("conf.gro"), "input conf file name"))
       ("input,f",  po::value<std::string > (&ifile)->default_value (std::string("traj.trr"), "input traj file name"))
       ("output,o",  po::value<std::string > (&ofile)->default_value (std::string("inte.corr.out"), "output of integrated corr as a function of modes"))
@@ -60,6 +67,17 @@ int main (int argc, char * argv[])
     std::cout << desc<< "\n";
     return 0;
   }
+
+  unsigned nkk = int ((kkEnd - kkStart + kkStep * 0.5) / kkStep) + 1;
+  vector<double > kks (nkk);
+  for (unsigned ii = 0; ii < nkk; ++ii) {
+    kks[ii] = kkStart + ii * kkStep;
+    // cout << kks[ii] << endl;
+  }
+
+  ModeRecover mode_recv (kks, h_window, cond_numb);
+
+  // return 0;
 
   vector<double > box;
   std::vector<int >  resdindex1;
@@ -90,12 +108,7 @@ int main (int argc, char * argv[])
   vector<vector<double > > xx;
   vector<vector<double > > vv;
   vector<vector<double > > ff;
-  unsigned nkk = int ((kkEnd - kkStart + kkStep * 0.5) / kkStep) + 1;
-  vector<double > kks (nkk);
-  for (unsigned ii = 0; ii < nkk; ++ii) {
-    kks[ii] = kkStart + ii * kkStep;
-    // cout << kks[ii] << endl;
-  }
+  
   int nframes = 0;
   int nCountFrame = 0;
   vector<BlockAverage_acc > bas1 (nkk);
@@ -114,7 +127,7 @@ int main (int argc, char * argv[])
   }
   
   box = tl.getBox ();
-  double hz = box[2] * 0.5;
+  // double hz = box[2] * 0.5;
   
   while (tl.load()){
     if (tl.getTime () < begin) continue;
@@ -128,7 +141,7 @@ int main (int argc, char * argv[])
       dt = tl.getTime() - dt;
     }
     if (nCountFrame++ % every != 0) continue;
-    if ((nCountFrame-1) % 1000 == 0){
+    if ((nCountFrame-1) % 10 == 0){
       printf ("# dt: %f load frame at time %f       \r", dt, tl.getTime());
       fflush (stdout);
     }
@@ -150,55 +163,65 @@ int main (int argc, char * argv[])
     comx[0] = 0.;
     comx[1] = 0.;
     comx[2] = 0.;
-    double liquid_x0,liquid_x1;
-    liquid_x0 = hbox - 7.5;
-    liquid_x1 = hbox + 7.5;
+    double liquid_x0, liquid_x1;
+    liquid_x0 = hbox - h_window;
+    liquid_x1 = hbox + h_window;
     double countcomv = 0.;
+    double comv0 (0), comv1(0), comv2(0);
+    double comx0 (0), comx1(0), comx2(0);
+#pragma omp parallel for reduction (+:countcomv, comv0, comv1, comv2, comx0, comx1, comx2) 
     for (unsigned ii = 0; ii < vv.size(); ++ii){
-      if (atomname1[ii] == string("OW") ) 
-      {    
-	    xx[ii][2 ]= (xx[ii][2]*15.99940 + xx[ii+1][2]*1.00800 + xx[ii+2][2]*1.00800)/18.0154;
-        if(xx[ii][2] > liquid_x0 && xx[ii][2] < liquid_x1)
-        { 
-           vv[ii][0] = (vv[ii][0]*15.99940 + vv[ii+1][0]*1.00800 + vv[ii+2][0]*1.00800)/18.0154;
-           vv[ii][1] = (vv[ii][1]*15.99940 + vv[ii+1][1]*1.00800 + vv[ii+2][1]*1.00800)/18.0154;
-           vv[ii][2] = (vv[ii][2]*15.99940 + vv[ii+1][2]*1.00800 + vv[ii+2][2]*1.00800)/18.0154;
-           xx[ii][0] = (xx[ii][0]*15.99940 + xx[ii+1][0]*1.00800 + xx[ii+2][0]*1.00800)/18.0154;
-           xx[ii][1] = (xx[ii][1]*15.99940 + xx[ii+1][1]*1.00800 + xx[ii+2][1]*1.00800)/18.0154;
-           comv[0] +=vv[ii][0];
-           comv[1] +=vv[ii][1];
-           comv[2] +=vv[ii][2];
-           comx[0] +=xx[ii][0];
-           comx[1] +=xx[ii][1];
-           comx[2] +=xx[ii][2];
-            countcomv += 1.;
+      if (atomname1[ii] == string("OW") ) {    
+	xx[ii][2 ]= (xx[ii][2]*15.99940 + xx[ii+1][2]*1.00800 + xx[ii+2][2]*1.00800)/18.0154;
+        if( h_window < 0 ||
+	    (xx[ii][2] > liquid_x0 && xx[ii][2] < liquid_x1)
+	    ) { 
+	  vv[ii][0] = (vv[ii][0]*15.99940 + vv[ii+1][0]*1.00800 + vv[ii+2][0]*1.00800)/18.0154;
+	  vv[ii][1] = (vv[ii][1]*15.99940 + vv[ii+1][1]*1.00800 + vv[ii+2][1]*1.00800)/18.0154;
+	  vv[ii][2] = (vv[ii][2]*15.99940 + vv[ii+1][2]*1.00800 + vv[ii+2][2]*1.00800)/18.0154;
+	  xx[ii][0] = (xx[ii][0]*15.99940 + xx[ii+1][0]*1.00800 + xx[ii+2][0]*1.00800)/18.0154;
+	  xx[ii][1] = (xx[ii][1]*15.99940 + xx[ii+1][1]*1.00800 + xx[ii+2][1]*1.00800)/18.0154;
+	  comv0 +=vv[ii][0];
+	  comv1 +=vv[ii][1];
+	  comv2 +=vv[ii][2];
+	  comx0 +=xx[ii][0];
+	  comx1 +=xx[ii][1];
+	  comx2 +=xx[ii][2];
+	  countcomv += 1.;
         }
       }
     }
-    comv[0] /= double(countcomv);
-    comv[1] /= double(countcomv);
-    comv[2] /= double(countcomv);
-    comx[0] /= double(countcomv);
-    comx[1] /= double(countcomv);
-    comx[2] /= double(countcomv);
+    comv[0] = comv0 / double(countcomv);
+    comv[1] = comv1 / double(countcomv);
+    comv[2] = comv2 / double(countcomv);
+    comx[0] = comx0 / double(countcomv);
+    comx[1] = comx1 / double(countcomv);
+    comx[2] = comx2 / double(countcomv);
     // printf ("comx: %f, hz: %f\n", comx[2], hz);
     // printf ("frame: %d  comv: %e\n", nframes, comv);
     // printf ("countcomv= %f\n ", countcomv );
+    vector<double > current_mode (kks.size(), 0.);
+#pragma omp parallel for
     for (unsigned mm = 0; mm < kks.size(); ++mm){	
-      double sum = 0.;
       double count = 0;
       for (unsigned ii = 0; ii < xx.size(); ++ii){
 	if (atomname1[ii] == string("OW")){
-     if(xx[ii][2] > liquid_x0 && xx[ii][2] < liquid_x1) 
-	  { double tmp1 = (vv[ii][0] - comv[0]) * sin(kks[mm] * (xx[ii][2] - comx[2]));
-	   sum += (tmp1);
-	   count += 1.;
-      }
+	  if( h_window < 0 ||
+	      (xx[ii][2] > liquid_x0 && xx[ii][2] < liquid_x1)
+	      ) {
+	    double tmp1 = (vv[ii][0] - comv[0]) * sin(kks[mm] * (xx[ii][2] - comx[2]));
+	    current_mode[mm] += (tmp1);
+	    count += 1.;
+	  }
 	}
       }
-      sum /= count;
-      acc[mm].push_back (sum);
-      bas1[mm].deposite (sum);
+      current_mode[mm] /= count;
+    }
+    vector<double > normalized_mode;
+    mode_recv.solve (current_mode, normalized_mode);
+    for (unsigned mm = 0; mm < kks.size(); ++mm){
+      acc[mm].push_back (normalized_mode[mm]);
+      bas1[mm].deposite (normalized_mode[mm]);
     }
   }
   printf ("\n");

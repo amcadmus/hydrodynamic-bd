@@ -6,6 +6,7 @@
 # boost-lib-path=		/people/thnfs/homes/wanghan/local/lib
 boost-lib-option=	-lboost_program_options
 xdrfile-lib-option=	-L ~/local/lib -lxdrfile
+lapack-lib-option=	-llapack 
 
 include_dirs = 	./include $(MKL_INCLUDE) $(boost-include-path) ~/local/include
 
@@ -79,19 +80,19 @@ define make-depend
 endef
 # $(call make-target,target,object-files-or-lib-files)
 define make-target
-  $(CXX) $(CXXFLAGS) -o $1 $2 -lm $(MKL_LINK) $(boost-lib-option) $(xdrfile-lib-option)
+  $(CXX) $(CXXFLAGS) -o $1 $2 -lm $(MKL_LINK) $(boost-lib-option) $(xdrfile-lib-option) $(lapack-lib-option) -fopenmp
 endef
 
 
 $(cppobjects_dir)/%.o:	$(sources_dir)/%.cpp
 	$(call make-depend,$<,$@,$(cppdepends_dir)/$(notdir $(subst .o,.d,$@)))
-	$(COMPILE.cpp) $(OUTPUT_OPTION) $<	
+	$(COMPILE.cpp) $(OUTPUT_OPTION) $< -fopenmp
 $(cobjects_dir)/%.o:	$(sources_dir)/%.c
 	$(call make-depend,$<,$@,$(cdepends_dir)/$(notdir $(subst .o,.d,$@)))
 	$(COMPILE.c) $(OUTPUT_OPTION) $<	
 $(application_dir)/%.o:	$(application_dir)/%.cpp
 	$(call make-depend,$<,$@,$(application_dir)/$(notdir $(subst .o,.d,$@)))
-	$(COMPILE.cpp) $(OUTPUT_OPTION) $<	
+	$(COMPILE.cpp) $(OUTPUT_OPTION) $< -fopenmp	
 
 
 
