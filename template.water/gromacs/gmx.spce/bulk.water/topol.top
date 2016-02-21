@@ -1,0 +1,19 @@
+#include "gmx.ff/forcefield.itp"
+
+[ moleculetype ]
+; name  nrexcl
+  CAR   1
+
+[ atoms ]
+; nr type resnr residu  atom    cgnr    char   mass
+  1   C     1   CAR     C       1    0.000   12.01100
+
+#include "gmx.ff/spce.itp"
+
+[ system ]
+; Name
+desalination in water
+
+[ molecules ]
+; Compound        #mols
+SOL                15880
